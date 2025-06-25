@@ -261,21 +261,21 @@ def add_additional_salary(doc, method):
                     # frappe.msgprint("Payment Date {0}". format(d.payment_date))
                     if d.payment_date == new_check and d.total_payment > 0 and d.is_paid == 0:
                         repayment_amount = d.total_payment
-                        if not frappe.db.exists("Additional Salary", {"employee": i.employee, "salary_component": staff_loan_salary_component, "payroll_date": new_check, "docstatus": 1, "amount": repayment_amount}): 
-                            if not d.payment_reference:
-                                # If it doesn't exist, create a new Additional Salary
-                                new_additional_salary = frappe.new_doc("Additional Salary")
-                                new_additional_salary.employee = i.employee
-                                new_additional_salary.employee_name = i.employee_name
-                                new_additional_salary.company = doc.company
-                                new_additional_salary.overwrite_salary_structure_amount = 0
-                                new_additional_salary.salary_component = staff_loan_salary_component
-                                new_additional_salary.amount = repayment_amount
-                                new_additional_salary.payroll_date = doc.start_date
-                                new_additional_salary.insert()
-                                new_additional_salary.submit()
-                                d.payment_reference = new_additional_salary.name
-                                d.save()
+                        # if not frappe.db.exists("Additional Salary", {"employee": i.employee, "salary_component": staff_loan_salary_component, "payroll_date": new_check, "docstatus": 1, "amount": repayment_amount}): 
+                        if not d.payment_reference:
+                            # If it doesn't exist, create a new Additional Salary
+                            new_additional_salary = frappe.new_doc("Additional Salary")
+                            new_additional_salary.employee = i.employee
+                            new_additional_salary.employee_name = i.employee_name
+                            new_additional_salary.company = doc.company
+                            new_additional_salary.overwrite_salary_structure_amount = 0
+                            new_additional_salary.salary_component = staff_loan_salary_component
+                            new_additional_salary.amount = repayment_amount
+                            new_additional_salary.payroll_date = doc.start_date
+                            new_additional_salary.insert()
+                            new_additional_salary.submit()
+                            d.payment_reference = new_additional_salary.name
+                            d.save()
 
 @frappe.whitelist()
 def add_additional_salary_on_salary_slip(doc, method):
