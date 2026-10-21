@@ -10,6 +10,7 @@
  "field_order": [
   "company",
   "credit_account",
+  "create_repayment_journal_entry",
   "jv_posting_date_based_on",
   "column_break_kaf9v",
   "staff_loan_component",
@@ -26,12 +27,13 @@
    "unique": 1
   },
   {
+   "depends_on": "create_repayment_journal_entry",
    "fieldname": "credit_account",
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Credit Account (Staff Loan)",
-   "options": "Account",
-   "reqd": 1
+   "mandatory_depends_on": "create_repayment_journal_entry",
+   "options": "Account"
   },
   {
    "fieldname": "column_break_kaf9v",
@@ -46,26 +48,35 @@
    "reqd": 1
   },
   {
+   "depends_on": "create_repayment_journal_entry",
    "fieldname": "debit_account",
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Debit Account (Staff Loan Receivable)",
-   "options": "Account",
-   "reqd": 1
+   "mandatory_depends_on": "create_repayment_journal_entry",
+   "options": "Account"
   },
   {
    "default": "End Date of Salary Slip",
+   "depends_on": "create_repayment_journal_entry",
    "fieldname": "jv_posting_date_based_on",
    "fieldtype": "Select",
    "label": "Accrual JV Posting Date Based on",
-   "options": "Start Date of Salary Slip\nEnd Date of Salary Slip",
-   "reqd": 1
+   "mandatory_depends_on": "create_repayment_journal_entry",
+   "options": "Start Date of Salary Slip\nEnd Date of Salary Slip"
+  },
+  {
+   "default": "0",
+   "description": "Payroll already posts the Staff Loan deduction to the salary component's account. Tick only if a separate Journal Entry is needed to move it into the Staff Loan account.",
+   "fieldname": "create_repayment_journal_entry",
+   "fieldtype": "Check",
+   "label": "Create Repayment Journal Entry"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-12-19 10:22:30.856949",
+ "modified": "2026-10-21 10:00:00.000000",
  "modified_by": "ibrahim@vvsdtz.com",
  "module": "Staff Loan Management",
  "name": "Staff Loan Company Setting",
