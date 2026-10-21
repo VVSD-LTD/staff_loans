@@ -50,96 +50,71 @@ def recalculate_staff_loan_repayments():
     # Inform the user that the recalculation is complete
     return frappe.msgprint("Completed Recalculation of Staff Loans Repayment Schedule")
 
+def get_staff_loan_settings(company):
+    fields = ["credit_account", "debit_account", "jv_posting_date_based_on", "create_repayment_journal_entry"]
+    if frappe.db.get_single_value('Staff Loan Settings', 'enable_multi_company'):
+        settings = frappe.db.get_value("Staff Loan Company Setting", {'company': company}, ["staff_loan_component", *fields], as_dict=True)
+        if not settings:
+            frappe.throw("Please Create a Staff Loan Company Setting or disable Multi Company Support on Staff Loan Settings")
+        return settings
+
+    settings = frappe.db.get_value("Staff Loan Settings", None, ["salary_component", *fields], as_dict=True)
+    if not settings.salary_component:
+        frappe.throw("Please setup Staff Loan Settings")
+    settings.staff_loan_component = settings.salary_component
+    return settings
+
+def validate_repayment_jv_accounts(doc):
+    # The Employee is set as party on the Credit Account, which ERPNext only allows on non Bank/Cash accounts
+    if doc.create_repayment_journal_entry and frappe.get_cached_value("Account", doc.credit_account, "account_type") in ("Bank", "Cash"):
+        frappe.throw(_("Credit Account {0} must be the Staff Loan account, not a Bank or Cash account").format(doc.credit_account))
+
 @frappe.whitelist()
 def on_salary_slip_submit(doc, method):
-    enable_multi_company = frappe.db.get_single_value('Staff Loan Settings', 'enable_multi_company')
-    if enable_multi_company:
-        if frappe.db.exists("Staff Loan Company Setting", {'company': doc.company}):
-            staff_loan_component,credit_account,debit_account,jv_posting_date_based_on = frappe.db.get_value("Staff Loan Company Setting",{'company':doc.company},["staff_loan_component","credit_account","debit_account","jv_posting_date_based_on"])
-            if any(staff_loan_component == deduction.salary_component for deduction in doc.deductions):
-                journal_entry = frappe.new_doc("Journal Entry")
-                journal_entry.voucher_type = "Journal Entry"
-                journal_entry.company = doc.company
-                journal_entry.posting_date = doc.end_date if jv_posting_date_based_on == "End Date of Salary Slip" else doc.start_date
-                journal_entry.cheque_no = doc.name
-                journal_entry.cheque_date = doc.posting_date
+    settings = get_staff_loan_settings(doc.company)
+    loan_deductions = [d for d in doc.deductions if d.salary_component == settings.staff_loan_component]
+    if not loan_deductions:
+        return
 
+    for deduction in loan_deductions:
+        for staff_loan in get_staff_loans(doc.employee):
+            update_staff_loan_repayment_schedule(staff_loan.name, deduction.additional_salary)
 
-                total_amount_salary_slip = 0
-                for deduction in doc.deductions:
-                    if deduction.salary_component == staff_loan_component:
-                        total_amount_salary_slip += deduction.amount
-                        staff_loans = get_staff_loans(doc.employee)
-                        journal_entry.append("accounts", {
-                            "account": credit_account,
-                            "party_type": "Employee",
-                            "party": doc.employee,
-                            "debit_in_account_currency": 0,
-                            "credit_in_account_currency": deduction.amount
-                        })
-                        for staff_loan in staff_loans:
-                            update_staff_loan_repayment_schedule(staff_loan.name, deduction.additional_salary)
-                
-                # create a new item in the table
-                new_item = journal_entry.append('accounts', {})
+    # Payroll already posts the deduction to the Staff Loan component's account
+    if not settings.create_repayment_journal_entry:
+        return
 
-                # set the values for the item
-                new_item.account = debit_account
-                new_item.debit_in_account_currency = total_amount_salary_slip
-                new_item.credit_in_account_currency = 0
-                journal_entry.user_remark = _("Accrual Journal Entry for salary slip {0} for {1} component").format(
-                            doc.name, staff_loan_component
-                        )
-                journal_entry.title = debit_account
-                journal_entry.insert()
-                journal_entry.submit()
-                return journal_entry
-        else:
-            frappe.throw("Please Create a Staff Loan Company Setting or disable Multi Company Support on Staff Loan Settings")
-    else:
-        staff_loan_settings_component = frappe.db.get_single_value('Staff Loan Settings', 'salary_component')
-        jv_posting_date_based_on = frappe.db.get_single_value('Staff Loan Settings', 'jv_posting_date_based_on')
-        if staff_loan_settings_component:
-            if any(staff_loan_settings_component == deduction.salary_component for deduction in doc.deductions):
-                journal_entry = frappe.new_doc("Journal Entry")
-                journal_entry.voucher_type = "Journal Entry"
-                journal_entry.company = doc.company
-                journal_entry.posting_date = doc.end_date if jv_posting_date_based_on == "End Date of Salary Slip" else doc.start_date
-                journal_entry.cheque_no = doc.name
-                journal_entry.cheque_date = doc.posting_date
+    journal_entry = frappe.new_doc("Journal Entry")
+    journal_entry.voucher_type = "Journal Entry"
+    journal_entry.company = doc.company
+    journal_entry.posting_date = doc.end_date if settings.jv_posting_date_based_on == "End Date of Salary Slip" else doc.start_date
+    journal_entry.cheque_no = doc.name
+    journal_entry.cheque_date = doc.posting_date
+    for deduction in loan_deductions:
+        journal_entry.append("accounts", {
+            "account": settings.credit_account,
+            "party_type": "Employee",
+            "party": doc.employee,
+            "credit_in_account_currency": deduction.amount
+        })
+    journal_entry.append("accounts", {
+        "account": settings.debit_account,
+        "debit_in_account_currency": sum(d.amount for d in loan_deductions)
+    })
+    journal_entry.user_remark = _("Accrual Journal Entry for salary slip {0} for {1} component").format(
+        doc.name, settings.staff_loan_component
+    )
+    journal_entry.title = settings.debit_account
 
-
-                total_amount_salary_slip = 0
-                for deduction in doc.deductions:
-                    if deduction.salary_component == staff_loan_settings_component:
-                        total_amount_salary_slip += deduction.amount
-                        staff_loans = get_staff_loans(doc.employee)
-                        journal_entry.append("accounts", {
-                            "account": frappe.db.get_single_value('Staff Loan Settings', 'credit_account'),
-                            "party_type": "Employee",
-                            "party": doc.employee,
-                            "debit_in_account_currency": 0,
-                            "credit_in_account_currency": deduction.amount
-                        })
-                        for staff_loan in staff_loans:
-                            update_staff_loan_repayment_schedule(staff_loan.name, deduction.additional_salary)
-                
-                # create a new item in the table
-                new_item = journal_entry.append('accounts', {})
-
-                # set the values for the item
-                new_item.account = frappe.db.get_single_value('Staff Loan Settings', 'debit_account')
-                new_item.debit_in_account_currency = total_amount_salary_slip
-                new_item.credit_in_account_currency = 0
-                journal_entry.user_remark = _("Accrual Journal Entry for salary slip {0} for {1} component").format(
-                            doc.name, staff_loan_settings_component
-                        )
-                journal_entry.title = frappe.db.get_single_value('Staff Loan Settings', 'debit_account')
-                journal_entry.insert()
-                journal_entry.submit()
-                return journal_entry
-        else:
-            frappe.throw("Please setup Staff Loan Settings")
+    # Payroll Entry swallows errors without a rollback; never leave this entry submitted without GL Entries
+    frappe.db.savepoint("staff_loan_jv")
+    try:
+        journal_entry.insert()
+        journal_entry.submit()
+    except Exception:
+        frappe.db.rollback(save_point="staff_loan_jv")
+        raise
+    return journal_entry
 
 def get_staff_loans(employee):
     staff_loans = frappe.get_all("Staff Loan", filters={

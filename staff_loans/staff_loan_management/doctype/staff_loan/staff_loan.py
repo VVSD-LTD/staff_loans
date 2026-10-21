@@ -49,7 +49,7 @@ class StaffLoan(AccountsController):
 		enable_multi_company = frappe.db.get_single_value('Staff Loan Settings', 'enable_multi_company')
 		
 		if not enable_multi_company:
-			if not frappe.db.get_single_value('Staff Loan Settings', 'credit_account'):
+			if not frappe.db.get_single_value('Staff Loan Settings', 'salary_component'):
 				frappe.throw("Please complete settings on Staff Loan Settings Doctype")
 
 		# Check if the "Staff Loan" Salary Component exists
