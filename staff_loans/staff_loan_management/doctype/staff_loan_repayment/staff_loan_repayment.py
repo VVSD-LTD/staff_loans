@@ -72,36 +72,27 @@ class StaffLoanRepayment(Document):
 			journal_entry.submit()
 
 	def on_cancel(self):
-		self.cancel_reschedule_repayment_schedule()
-		# self.ignore_linked_doctypes = ("Staff Loan")
+		from staff_loans.custom.schedule_links import reverse_external_repayment
+
+		reverse_external_repayment(self.loan, self.name)
 		if self.repayment_type == "Loan Write Off":
 			self.update_outstanding_amount(cancel=1)
 		elif self.repayment_type == "External Sources":
 			self.update_outstanding_amount2(cancel=1)
 
 	def update_outstanding_amount(self, cancel=0):
-		written_off_amount = frappe.db.get_value("Staff Loan", self.loan, "written_off_amount")
-		total_amount_paid = frappe.db.get_value("Staff Loan", self.loan, "total_amount_paid")
+		written_off_amount = flt(frappe.db.get_value("Staff Loan", self.loan, "written_off_amount"))
 
 		if cancel:
-			written_off_amount -= self.write_off_amount
-			total_amount_paid -= self.write_off_amount
+			written_off_amount -= flt(self.write_off_amount)
 		else:
-			written_off_amount += self.write_off_amount
-			total_amount_paid += self.write_off_amount
+			written_off_amount += flt(self.write_off_amount)
 
 		frappe.db.set_value("Staff Loan", self.loan, "written_off_amount", written_off_amount)
-		frappe.db.set_value("Staff Loan", self.loan, "total_amount_paid", total_amount_paid)
 
 	def update_outstanding_amount2(self, cancel=0):
-		rep_amount = frappe.db.get_value("Staff Loan", self.loan, "total_amount_paid")
-
-		if cancel:
-			rep_amount -= self.repayment_amount
-		else:
-			rep_amount += self.repayment_amount
-
-		frappe.db.set_value("Staff Loan", self.loan, "total_amount_paid", rep_amount)
+		# The schedule save already includes this repayment in total_amount_paid.
+		return
 
 	def validate_amount(self):
 		precision = cint(frappe.db.get_default("currency_precision")) or 2

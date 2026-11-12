@@ -12,6 +12,9 @@
   "total_payment",
   "balance_loan_amount",
   "is_paid",
+  "amount_paid",
+  "salary_paid",
+  "external_paid",
   "payment_reference",
   "outsource",
   "repayment_reference"
@@ -69,12 +72,38 @@
   },
   {
    "allow_on_submit": 1,
+   "columns": 1,
+   "fieldname": "amount_paid",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "label": "Amount Paid",
+   "options": "Company:company:default_currency",
+   "read_only": 1
+  },
+  {
+   "allow_on_submit": 1,
+   "fieldname": "salary_paid",
+   "fieldtype": "Currency",
+   "label": "Salary Paid",
+   "options": "Company:company:default_currency",
+   "read_only": 1
+  },
+  {
+   "allow_on_submit": 1,
+   "fieldname": "external_paid",
+   "fieldtype": "Currency",
+   "label": "External Paid",
+   "options": "Company:company:default_currency",
+   "read_only": 1
+  },
+  {
+   "allow_on_submit": 1,
    "columns": 2,
    "fieldname": "payment_reference",
-   "fieldtype": "Link",
+   "fieldtype": "Text Editor",
+   "ignore_xss_filter": 1,
    "in_list_view": 1,
    "label": "Payment Reference",
-   "options": "Additional Salary",
    "read_only": 1
   },
   {
@@ -91,10 +120,10 @@
    "allow_on_submit": 1,
    "columns": 2,
    "fieldname": "repayment_reference",
-   "fieldtype": "Link",
+   "fieldtype": "Text Editor",
+   "ignore_xss_filter": 1,
    "in_list_view": 1,
    "label": "Repayment Reference",
-   "options": "Staff Loan Repayment",
    "read_only": 1
   }
  ],

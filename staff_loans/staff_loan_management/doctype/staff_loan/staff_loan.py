@@ -34,16 +34,17 @@ class StaffLoan(AccountsController):
 		self.check_staff_loan_settings()
 
 	def recalculate_repayment_schedule(self):
-		total_amount_paid = 0.00
-		for data in self.repayment_schedule:
-			if data.is_paid == 1:
-				total_amount_paid += data.total_payment
-		
+		from staff_loans.custom.schedule_links import schedule_paid_total
+
+		total_amount_paid = schedule_paid_total(self)
+
 		if self.total_amount_paid != total_amount_paid:
 			self.total_amount_paid = total_amount_paid
 
 		if self.total_payment == self.total_amount_paid and self.status != "Closed":
 			self.status = "Closed"
+		elif self.total_payment != self.total_amount_paid and self.status == "Closed":
+			self.status = "Disbursed"
 
 	def check_staff_loan_settings(self):
 		enable_multi_company = frappe.db.get_single_value('Staff Loan Settings', 'enable_multi_company')
