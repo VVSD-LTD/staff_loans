@@ -17,6 +17,7 @@ frappe.ui.form.on("Staff Loan", {
 		});
 	},
 	onload: function (frm) {
+		setup_schedule_reference_formatter();
 		// Ignore loan security pledge on cancel of loan
 		// frm.ignore_doctypes_on_cancel_all = ["Loan Security Pledge"];
 
@@ -293,6 +294,7 @@ frappe.ui.form.on("Staff Loan", {
 	},
 
 	refresh: function (frm) {
+		render_schedule_reference_links(frm);
 	// 	if (frm.doc.docstatus == 1) {
 	// 	let total = 0;
 	// 	let table_field = frm.doc.repayment_schedule;
@@ -455,6 +457,70 @@ frappe.ui.form.on("Staff Loan", {
 		frm.toggle_enable("repayment_periods", frm.doc.repayment_method == "Repay Over Number of Periods")
 	}
 });
+
+function setup_schedule_reference_formatter() {
+	["payment_reference", "repayment_reference"].forEach((fieldname) => {
+		const df = frappe.meta.get_docfield("Staff Loan Repayment Schedule", fieldname);
+		if (df) {
+			df.formatter = (value) => schedule_reference_html(value);
+		}
+	});
+}
+
+function schedule_reference_html(value) {
+	if (!value) {
+		return "";
+	}
+	const text = String(value);
+	if (text.indexOf("<a") === -1) {
+		return frappe.utils.escape_html(text);
+	}
+	const wrapper = $("<div>").html(text);
+	wrapper.find("a").attr("target", "_blank").attr("rel", "noopener noreferrer");
+	return wrapper.html();
+}
+
+function render_schedule_reference_links(frm) {
+	const grid = frm.fields_dict.repayment_schedule && frm.fields_dict.repayment_schedule.grid;
+	if (!grid) {
+		return;
+	}
+	setup_schedule_reference_formatter();
+	if (!grid._staff_loan_reference_paint) {
+		const original_refresh = grid.refresh.bind(grid);
+		grid.refresh = function () {
+			const result = original_refresh.apply(grid, arguments);
+			paint_schedule_reference_links(frm);
+			return result;
+		};
+		grid._staff_loan_reference_paint = true;
+	}
+	paint_schedule_reference_links(frm);
+}
+
+function paint_schedule_reference_links(frm) {
+	const grid = frm.fields_dict.repayment_schedule && frm.fields_dict.repayment_schedule.grid;
+	if (!grid || !grid.grid_rows) {
+		return;
+	}
+	grid.grid_rows.forEach((row) => {
+		if (!row.doc || !row.columns) {
+			return;
+		}
+		["payment_reference", "repayment_reference"].forEach((fieldname) => {
+			const column = row.columns[fieldname];
+			if (!column || !column.static_area) {
+				return;
+			}
+			column.static_area
+				.html(schedule_reference_html(row.doc[fieldname]))
+				.css({ "white-space": "normal", "text-overflow": "clip" });
+			column.static_area.find("a").on("click", (event) => {
+				event.stopPropagation();
+			});
+		});
+	});
+}
 // frappe.ui.form.on("Repayment", "is_paid", function(frm) {
 // 	let total = 0;
 // 	let table_field = frappe.get_doc("Staff Loan", frm.doc.name).repayment_schedule;
