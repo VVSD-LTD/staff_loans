@@ -1,4 +1,3 @@
 [pre_model_sync]
 
 [post_model_sync]
-staff_loans.patches.v1_0.backfill_schedule_amounts
